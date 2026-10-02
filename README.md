@@ -18,6 +18,9 @@ Then open <http://localhost:8000>. Any static server works the same way
 Add `?country=IT` to the URL to preselect a country, e.g.
 <http://localhost:8000/?country=ZA>.
 
+`?sync=1` makes the page fetch the JSON synchronously. It exists only for the
+screenshot script — see below — and nothing in normal use needs it.
+
 ## The data
 
 `covid-19.json` comes from the Johns Hopkins CSSE COVID-19 repository, covering
@@ -71,5 +74,15 @@ paths are covered without a browser.
 scripts/screenshot.sh IT 1440 900
 ```
 
-Starts a temporary server, captures the page with headless Firefox, and writes
-to `screenshots/`.
+Serves the page, captures it with headless Firefox, and writes to
+`screenshots/`. Takes country, width and height.
+
+Headless Firefox takes the capture at the page's `load` event, which happens
+before an async `fetch()` has resolved — so a naive capture shows the loading
+placeholder rather than the data. `?sync=1` blocks on the fetch so the render
+completes first. That closes the gap most of the time but not always, so the
+script checks each capture and retries. The check counts the muted-coloured
+pixels of the summary line, which the placeholder does not produce.
+
+If Pillow isn't installed the check is skipped and the capture is written
+unverified, so the script still works without it.

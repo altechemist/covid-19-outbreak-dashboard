@@ -69,6 +69,7 @@ test('loads the dataset, populates the selector and logs each country', async ()
   );
 
   assert.equal(select.selectedIndex, 0);
+  assert.equal(select.disabled, false);
   assert.match(output.innerHTML, /China/);
   assert.match(output.innerHTML, /2,114/);
 

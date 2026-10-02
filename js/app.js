@@ -2,6 +2,28 @@ import { summary, findCountry } from './data.js';
 
 const DATA_URL = 'covid-19.json';
 
+// Firefox's --screenshot fires at the load event, which lands before an async
+// fetch() has resolved, so headless captures show the loading placeholder.
+// Blocking the main thread here holds the load event open until the render is
+// done. Only reachable via ?sync=1 — synchronous XHR is deprecated, so normal
+// use never goes through it.
+const SYNC = new URLSearchParams(location.search).has('sync');
+
+function request() {
+  if (!SYNC) return fetch(DATA_URL);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', DATA_URL, false);
+  xhr.send(null);
+
+  return {
+    ok: xhr.status >= 200 && xhr.status < 300,
+    status: xhr.status,
+    statusText: xhr.statusText,
+    json: async () => JSON.parse(xhr.responseText),
+  };
+}
+
 const countrySelect = document.querySelector('#country');
 const output = document.querySelector('#output');
 
@@ -51,7 +73,7 @@ async function load() {
   let data;
 
   try {
-    const response = await fetch(DATA_URL);
+    const response = await request();
 
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
@@ -79,6 +101,8 @@ async function load() {
     data.countries,
     new URLSearchParams(location.search).get('country'),
   );
+
+  countrySelect.disabled = false;
 
   countrySelect.selectedIndex = preselected
     ? data.countries.indexOf(preselected)
