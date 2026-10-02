@@ -57,5 +57,5 @@ scripts/screenshot.sh
 ## Tests
 
 ```sh
-node --test tests/
+node --test tests/calc.test.mjs
 ```
