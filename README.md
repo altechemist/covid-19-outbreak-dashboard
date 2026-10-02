@@ -51,11 +51,25 @@ css/styles.css
 js/data.js          data normalisation, no DOM
 js/app.js           loading, country selector, logging
 tests/calc.test.mjs data tests
+tests/app.test.mjs  loading and rendering tests
 scripts/screenshot.sh
 ```
 
 ## Tests
 
 ```sh
-node --test tests/calc.test.mjs
+node --test tests/calc.test.mjs tests/app.test.mjs
 ```
+
+`calc` covers the data layer against the real dataset. `app` runs `app.js`
+against a small DOM stub, so the load → selector → render path and the error
+paths are covered without a browser.
+
+## Screenshots
+
+```sh
+scripts/screenshot.sh IT 1440 900
+```
+
+Starts a temporary server, captures the page with headless Firefox, and writes
+to `screenshots/`.
