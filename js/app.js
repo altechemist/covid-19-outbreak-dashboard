@@ -1,4 +1,5 @@
 import { summary, findCountry } from './data.js';
+import { chartConfig } from './charts.js';
 
 const DATA_URL = 'covid-19.json';
 
@@ -26,6 +27,10 @@ function request() {
 
 const countrySelect = document.querySelector('#country');
 const output = document.querySelector('#output');
+const chartWrap = document.querySelector('#chart-wrap');
+const chartCanvas = document.querySelector('#chart');
+
+let chart = null;
 
 // en-ZA groups with spaces, which reads ambiguously at six digits ("81 554").
 const nf = new Intl.NumberFormat('en-US');
@@ -56,12 +61,25 @@ function describe(country) {
     <p class="meta">${line}</p>`;
 }
 
-function render(countries) {
-  output.innerHTML = describe(countries[countrySelect.selectedIndex]);
+function drawChart(country) {
+  // Revealed first: a canvas inside a display:none box has no dimensions for
+  // Chart.js to measure, so it would draw into a zero-sized element.
+  chartWrap.hidden = false;
 
-  countrySelect.addEventListener('change', () => {
-    output.innerHTML = describe(countries[countrySelect.selectedIndex]);
-  });
+  if (chart) chart.destroy();
+  chart = new Chart(chartCanvas.getContext('2d'), chartConfig(country));
+}
+
+function render(countries) {
+  const update = () => {
+    const country = countries[countrySelect.selectedIndex];
+
+    output.innerHTML = describe(country);
+    drawChart(country);
+  };
+
+  update();
+  countrySelect.addEventListener('change', update);
 }
 
 function fail(message) {

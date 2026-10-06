@@ -16,7 +16,7 @@ body {
 }
 
 main {
-  max-width: 720px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 2rem 1.25rem;
 }
@@ -54,17 +54,29 @@ select:disabled {
   color: var(--muted);
 }
 
-#output {
+.card {
   padding: 1rem 1.15rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+}
+
+#output {
   min-height: 5rem;
 }
 
-#output h2 {
+.card h2 {
   margin: 0;
   font-size: 1.15rem;
+}
+
+.chart-wrap {
+  margin-top: 1rem;
+}
+
+.chart {
+  position: relative;
+  height: 340px;
 }
 
 .meta {

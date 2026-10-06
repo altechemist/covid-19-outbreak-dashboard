@@ -33,15 +33,32 @@ class FakeSelect {
 async function run({ search = '', response } = {}) {
   const select = new FakeSelect();
   const output = { innerHTML: '' };
+  const chartWrap = { hidden: true };
+  const canvas = { getContext: () => ({}) };
+  const charts = [];
   const logs = [];
 
-  globalThis.document = {
-    querySelector: (selector) => (selector === '#country' ? select : output),
+  const elements = {
+    '#country': select,
+    '#output': output,
+    '#chart-wrap': chartWrap,
+    '#chart': canvas,
   };
+
+  globalThis.document = { querySelector: (selector) => elements[selector] };
   globalThis.Option = FakeOption;
   globalThis.location = { search };
   globalThis.fetch = async () =>
     response ?? { ok: true, status: 200, json: async () => dataset };
+
+  globalThis.Chart = class {
+    constructor(ctx, config) {
+      this.ctx = ctx;
+      this.config = config;
+      charts.push(this);
+    }
+    destroy() {}
+  };
 
   const real = { log: console.log, error: console.error };
   console.log = (...a) => logs.push(a.join(' '));
@@ -56,7 +73,7 @@ async function run({ search = '', response } = {}) {
     console.error = real.error;
   }
 
-  return { select, output, logs };
+  return { select, output, chartWrap, charts, logs };
 }
 
 test('loads the dataset, populates the selector and logs each country', async () => {
@@ -108,4 +125,29 @@ test('a malformed dataset is rejected', async () => {
   });
 
   assert.match(output.innerHTML, /doesn't look like the expected dataset/);
+});
+
+test('the chart is drawn for the selected country and redrawn on change', async () => {
+  const { select, chartWrap, charts } = await run();
+
+  assert.equal(chartWrap.hidden, false, 'chart section revealed');
+  assert.equal(charts.length, 1);
+  assert.equal(charts[0].config.data.datasets.length, 3);
+  assert.equal(charts[0].config.options.animation, false);
+  assert.equal(charts[0].config.data.datasets[0].data.at(-1).y, 81554);
+
+  select.selectedIndex = 1;
+  select.change();
+
+  assert.equal(charts.length, 2, 'changing country redraws the chart');
+  assert.equal(charts[1].config.data.datasets[0].data.at(-1).y, 105792);
+});
+
+test('the chart stays hidden when loading fails', async () => {
+  const { chartWrap, charts } = await run({
+    response: { ok: false, status: 404, statusText: 'Not Found' },
+  });
+
+  assert.equal(chartWrap.hidden, true);
+  assert.equal(charts.length, 0);
 });
