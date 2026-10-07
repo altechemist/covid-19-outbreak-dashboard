@@ -33,6 +33,36 @@ export function summary(country) {
   };
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+
+// The dataset holds snapshots 4–19 days apart, not daily counts, so "new cases
+// per day" can only be the change between two reports divided by the days
+// between them. One entry per interval; the first report has no predecessor and
+// so produces no entry.
+export function dailyNewCases(country) {
+  const rows = series(country);
+
+  return rows.slice(1).flatMap((row, i) => {
+    const prev = rows[i];
+    const days = Math.round((Date.parse(row.date) - Date.parse(prev.date)) / DAY);
+
+    // Two rows sharing a date would divide by zero. That is a broken snapshot
+    // rather than an interval, so it produces no entry at all.
+    if (days < 1) return [];
+
+    const rate = (key) => (row[key] - prev[key]) / days;
+
+    return [{
+      date: row.date,
+      from: prev.date,
+      days,
+      confirmed: rate('confirmed'),
+      deaths: rate('deaths'),
+      recovered: rate('recovered'),
+    }];
+  });
+}
+
 export function findCountry(countries, key) {
   if (!key) return null;
   const wanted = String(key).trim().toLowerCase();

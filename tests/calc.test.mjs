@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { series, summary, findCountry } from '../js/data.js';
+import { series, summary, findCountry, dailyNewCases } from '../js/data.js';
 
 const data = JSON.parse(
   readFileSync(new URL('../covid-19.json', import.meta.url), 'utf8'),
@@ -63,4 +63,67 @@ test('countries resolve by code or name, case-insensitively', () => {
   assert.equal(findCountry(data.countries, 'united states').code, 'US');
   assert.equal(findCountry(data.countries, 'nope'), null);
   assert.equal(findCountry(data.countries, ''), null);
+});
+
+test('daily new cases are averaged over the gap between reports', () => {
+  const italy = dailyNewCases(at('Italy'));
+
+  assert.equal(italy.length, 5);
+  assert.equal(italy[0].date, '2020-02-25');
+  assert.equal(italy[0].from, '2020-02-20');
+  assert.equal(italy[0].days, 5);
+  assert.equal(italy[0].confirmed, 56);
+  assert.equal(italy[0].deaths, 1.4);
+  assert.equal(italy[4].days, 11);
+  assert.equal(italy[4].confirmed, 58771 / 11);
+});
+
+test('the leap-year gap from February to March is five days', () => {
+  const italy = dailyNewCases(at('Italy'));
+
+  assert.equal(italy[1].date, '2020-03-01');
+  assert.equal(italy[1].days, 5);
+  assert.equal(italy[1].confirmed, 169);
+});
+
+test('China peaks in February rather than March', () => {
+  const china = dailyNewCases(at('China'));
+  const peak = china.reduce((a, b) => (b.confirmed > a.confirmed ? b : a));
+
+  assert.equal(peak.date, '2020-02-20');
+  assert.equal(peak.confirmed, 3293.1);
+  assert.equal(china[0].days, 9);
+  assert.equal(china[0].confirmed, 28258 / 9);
+});
+
+test('gaps of different lengths still give comparable rates', () => {
+  const korea = dailyNewCases(at('South Korea'));
+
+  assert.equal(korea.length, 5);
+  assert.equal(korea[0].days, 19);
+  assert.equal(korea[0].confirmed, 92 / 19);
+  assert.equal(korea.at(-1).days, 11);
+  assert.equal(korea.at(-1).confirmed, 1134 / 11);
+});
+
+test('the first report has no predecessor, so it produces no bar', () => {
+  const southAfrica = dailyNewCases(at('South Africa'));
+
+  assert.equal(southAfrica.length, 4);
+  assert.equal(southAfrica[0].from, '2020-03-05');
+  assert.equal(southAfrica[0].date, '2020-03-10');
+  assert.equal(southAfrica[0].confirmed, 6 / 5);
+  assert.equal(dailyNewCases({ country: 'Nowhere', data: [] }).length, 0);
+});
+
+test('a repeated date yields no interval rather than a divide by zero', () => {
+  const rows = dailyNewCases({ country: 'Duplicated', data: [
+    { date: '2020-03-01', confirmed: 10 },
+    { date: '2020-03-01', confirmed: 12 },
+    { date: '2020-03-10', confirmed: 30 },
+  ] });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].days, 9);
+  assert.equal(rows[0].confirmed, 2);
 });
