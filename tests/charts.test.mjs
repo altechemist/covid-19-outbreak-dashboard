@@ -7,6 +7,7 @@ import {
   SERIES,
   WEEK,
   chartConfig,
+  dailyChartConfig,
   epoch,
   formatDate,
   formatTooltipDate,
@@ -100,4 +101,56 @@ test('a country with no rows still yields a usable config', () => {
   assert.ok(datasets.every((d) => d.data.length === 0));
   assert.equal(options.scales.x.min, 0);
   assert.equal(options.scales.x.max, 1);
+});
+
+test('the daily chart is a bar chart of one point per interval', () => {
+  const { type, data: { datasets }, options } = dailyChartConfig(at('Italy'));
+
+  assert.equal(type, 'bar');
+  assert.deepEqual(datasets.map((d) => d.label), ['Confirmed', 'Deaths', 'Recovered']);
+  assert.deepEqual(datasets.map((d) => d.backgroundColor), SERIES.map((s) => s.color));
+  assert.ok(datasets.every((d) => d.data.length === 5), 'Italy reports six times, so five intervals');
+  assert.equal(datasets[0].data.at(-1).y, 58771 / 11);
+  assert.equal(datasets[1].data.at(-1).y, 8396 / 11);
+  assert.equal(options.animation, false);
+  assert.equal(options.scales.y.beginAtZero, true);
+  assert.equal(options.scales.y.title.text, 'New cases per day');
+});
+
+test('bars share the line chart date axis so the two can be compared', () => {
+  const line = chartConfig(at('Italy'));
+  const bar = dailyChartConfig(at('Italy'));
+
+  assert.deepEqual(
+    { min: bar.options.scales.x.min, max: bar.options.scales.x.max },
+    { min: line.options.scales.x.min, max: line.options.scales.x.max },
+  );
+  assert.equal(bar.options.scales.x.ticks.stepSize, WEEK);
+  assert.equal(bar.data.datasets[0].data[0].x, epoch('2020-02-25'));
+});
+
+test('the first report has no bar, because there is nothing before it', () => {
+  const southAfrica = dailyChartConfig(at('South Africa'));
+  const nowhere = dailyChartConfig({ country: 'Nowhere', data: [] });
+
+  assert.ok(southAfrica.data.datasets.every((d) => d.data.length === 4));
+  assert.equal(southAfrica.data.datasets[0].data[0].x, epoch('2020-03-10'));
+  assert.ok(nowhere.data.datasets.every((d) => d.data.length === 0));
+});
+
+test('bar tooltips name the interval and the rate, not a single day', () => {
+  const { options } = dailyChartConfig(at('Italy'));
+  const { title, label } = options.plugins.tooltip.callbacks;
+
+  assert.equal(title([{ dataIndex: 4 }]), '20 Mar 2020 → 31 Mar 2020 (11 days)');
+  assert.equal(title([{ dataIndex: 0 }]), '20 Feb 2020 → 25 Feb 2020 (5 days)');
+  assert.equal(
+    label({ dataset: { label: 'Confirmed' }, parsed: { y: 58771 / 11 } }),
+    'Confirmed: 5,342.8 per day',
+  );
+  // Small averages must not round away to zero.
+  assert.equal(
+    label({ dataset: { label: 'Recovered' }, parsed: { y: 0.2 } }),
+    'Recovered: 0.2 per day',
+  );
 });

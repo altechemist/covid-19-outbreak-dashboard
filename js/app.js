@@ -1,5 +1,5 @@
 import { summary, findCountry } from './data.js';
-import { chartConfig } from './charts.js';
+import { chartConfig, dailyChartConfig } from './charts.js';
 
 const DATA_URL = 'covid-19.json';
 
@@ -29,8 +29,20 @@ const countrySelect = document.querySelector('#country');
 const output = document.querySelector('#output');
 const chartWrap = document.querySelector('#chart-wrap');
 const chartCanvas = document.querySelector('#chart');
+const barWrap = document.querySelector('#bar-wrap');
+const barCanvas = document.querySelector('#bar-chart');
 
-let chart = null;
+let lineChart = null;
+let barChart = null;
+
+// The four headline figures. Active is derived rather than reported, but the
+// research brief asks for it alongside the three the dataset supplies.
+const CARDS = [
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'deaths', label: 'Deaths' },
+  { key: 'recovered', label: 'Recovered' },
+  { key: 'active', label: 'Active' },
+];
 
 // en-ZA groups with spaces, which reads ambiguously at six digits ("81 554").
 const nf = new Intl.NumberFormat('en-US');
@@ -50,24 +62,38 @@ function describe(country) {
   const s = summary(country);
   if (!s) return `${country.country}: no data`;
 
-  const line =
+  const figures =
     `${s.points} points, ${readDate(s.from)} to ${readDate(s.to)} — ` +
     `confirmed ${nf.format(s.confirmed)}, deaths ${nf.format(s.deaths)}, ` +
     `recovered ${nf.format(s.recovered)}, active ${nf.format(s.active)}`;
 
-  console.log(`[covid-19] ${s.country} (${s.code}) — ${line}`);
+  console.log(`[covid-19] ${s.country} (${s.code}) — ${figures}`);
+
+  const cards = CARDS.map(
+    (card) => `<div class="metric ${card.key}">
+        <span class="label">${card.label}</span>
+        <span class="value">${nf.format(s[card.key])}</span>
+      </div>`,
+  ).join('\n      ');
 
   return `<h2>${s.country}</h2>
-    <p class="meta">${line}</p>`;
+    <div class="metrics">
+      ${cards}
+    </div>
+    <p class="meta">${s.points} points, ${readDate(s.from)} to ${readDate(s.to)}</p>`;
 }
 
-function drawChart(country) {
+function drawCharts(country) {
   // Revealed first: a canvas inside a display:none box has no dimensions for
   // Chart.js to measure, so it would draw into a zero-sized element.
   chartWrap.hidden = false;
+  barWrap.hidden = false;
 
-  if (chart) chart.destroy();
-  chart = new Chart(chartCanvas.getContext('2d'), chartConfig(country));
+  if (lineChart) lineChart.destroy();
+  lineChart = new Chart(chartCanvas.getContext('2d'), chartConfig(country));
+
+  if (barChart) barChart.destroy();
+  barChart = new Chart(barCanvas.getContext('2d'), dailyChartConfig(country));
 }
 
 function render(countries) {
@@ -75,7 +101,7 @@ function render(countries) {
     const country = countries[countrySelect.selectedIndex];
 
     output.innerHTML = describe(country);
-    drawChart(country);
+    drawCharts(country);
   };
 
   update();

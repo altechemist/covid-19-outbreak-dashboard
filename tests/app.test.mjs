@@ -34,6 +34,7 @@ async function run({ search = '', response } = {}) {
   const select = new FakeSelect();
   const output = { innerHTML: '' };
   const chartWrap = { hidden: true };
+  const barWrap = { hidden: true };
   const canvas = { getContext: () => ({}) };
   const charts = [];
   const logs = [];
@@ -43,6 +44,8 @@ async function run({ search = '', response } = {}) {
     '#output': output,
     '#chart-wrap': chartWrap,
     '#chart': canvas,
+    '#bar-wrap': barWrap,
+    '#bar-chart': canvas,
   };
 
   globalThis.document = { querySelector: (selector) => elements[selector] };
@@ -73,7 +76,7 @@ async function run({ search = '', response } = {}) {
     console.error = real.error;
   }
 
-  return { select, output, chartWrap, charts, logs };
+  return { select, output, chartWrap, barWrap, charts, logs };
 }
 
 test('loads the dataset, populates the selector and logs each country', async () => {
@@ -127,27 +130,51 @@ test('a malformed dataset is rejected', async () => {
   assert.match(output.innerHTML, /doesn't look like the expected dataset/);
 });
 
-test('the chart is drawn for the selected country and redrawn on change', async () => {
-  const { select, chartWrap, charts } = await run();
+test('both charts are drawn for the selected country and redrawn on change', async () => {
+  const { select, chartWrap, barWrap, charts } = await run();
 
-  assert.equal(chartWrap.hidden, false, 'chart section revealed');
-  assert.equal(charts.length, 1);
+  assert.equal(chartWrap.hidden, false, 'line chart section revealed');
+  assert.equal(barWrap.hidden, false, 'bar chart section revealed');
+  assert.equal(charts.length, 2, 'line chart then bar chart');
+
+  assert.equal(charts[0].config.type, 'line');
   assert.equal(charts[0].config.data.datasets.length, 3);
   assert.equal(charts[0].config.options.animation, false);
   assert.equal(charts[0].config.data.datasets[0].data.at(-1).y, 81554);
 
+  assert.equal(charts[1].config.type, 'bar');
+  assert.equal(charts[1].config.data.datasets.length, 3);
+  assert.equal(charts[1].config.data.datasets[0].data.at(-1).y, 138 / 11);
+  assert.equal(charts[1].config.data.datasets[0].data.length, 6);
+
   select.selectedIndex = 1;
   select.change();
 
-  assert.equal(charts.length, 2, 'changing country redraws the chart');
-  assert.equal(charts[1].config.data.datasets[0].data.at(-1).y, 105792);
+  assert.equal(charts.length, 4, 'both charts redraw on change');
+  assert.equal(charts[2].config.type, 'line');
+  assert.equal(charts[2].config.data.datasets[0].data.at(-1).y, 105792);
+  assert.equal(charts[3].config.type, 'bar');
+  assert.equal(charts[3].config.data.datasets[0].data.at(-1).y, 58771 / 11);
 });
 
-test('the chart stays hidden when loading fails', async () => {
-  const { chartWrap, charts } = await run({
+test('the metric cards show the four headline figures', async () => {
+  const { output } = await run({ search: '?country=za' });
+
+  assert.match(output.innerHTML, /class="metric confirmed"/);
+  assert.match(output.innerHTML, /class="metric deaths"/);
+  assert.match(output.innerHTML, /class="metric recovered"/);
+  assert.match(output.innerHTML, /class="metric active"/);
+  assert.match(output.innerHTML, /1,353/, 'latest confirmed');
+  assert.match(output.innerHTML, /1,317/, 'active = confirmed - deaths - recovered');
+  assert.match(output.innerHTML, /5 points, 5 Mar 2020 to 31 Mar 2020/);
+});
+
+test('the charts stay hidden when loading fails', async () => {
+  const { chartWrap, barWrap, charts } = await run({
     response: { ok: false, status: 404, statusText: 'Not Found' },
   });
 
   assert.equal(chartWrap.hidden, true);
+  assert.equal(barWrap.hidden, true);
   assert.equal(charts.length, 0);
 });

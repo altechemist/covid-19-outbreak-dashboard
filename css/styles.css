@@ -61,6 +61,10 @@ select:disabled {
   background: #fff;
 }
 
+.card + .card {
+  margin-top: 1rem;
+}
+
 #output {
   min-height: 5rem;
 }
@@ -68,6 +72,53 @@ select:disabled {
 .card h2 {
   margin: 0;
   font-size: 1.15rem;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+/* The accent is a tint rather than the series colour itself: the screenshot
+   check counts exact series-colour pixels to tell a drawn chart from an
+   empty one, and a full-height card border would read as a bar. */
+.metric {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--muted);
+  border-radius: 6px;
+  background: #fbfcfd;
+}
+
+.metric.confirmed {
+  border-left-color: #8ab4f8;
+}
+
+.metric.deaths {
+  border-left-color: #d3938c;
+}
+
+.metric.recovered {
+  border-left-color: #74b0aa;
+}
+
+.metric .label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.metric .value {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 1.35rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-wrap {
@@ -81,6 +132,12 @@ select:disabled {
 
 .meta {
   margin: 0.4rem 0 0;
+  color: var(--muted);
+}
+
+.hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
