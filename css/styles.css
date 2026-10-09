@@ -153,3 +153,19 @@ input[type="date"]:disabled {
 .error {
   color: #b02a1f;
 }
+
+/* Below tablet width the two charts are already stacked and scrollable; this
+   just trims the padding and chart height so less scrolling is needed. */
+@media (max-width: 640px) {
+  main {
+    padding: 1.25rem 0.9rem;
+  }
+
+  .chart {
+    height: 260px;
+  }
+
+  .metrics {
+    gap: 0.5rem;
+  }
+}

@@ -3,6 +3,20 @@
 Dashboard for the early COVID-19 outbreak period (February–March 2020), built
 around the supplied `covid-19.json` snapshot.
 
+## Requirements
+
+Nothing to install to *run* it. `index.html`, `css/`, `js/`, `vendor/` and
+`covid-19.json` are all that get served, Chart.js is vendored, and there is no
+build step or CDN.
+
+The optional extras want a little more:
+
+| Task | Needs |
+| --- | --- |
+| serving the page | Python 3 (or any static server) |
+| `node --test …` | Node 18+ — the built-in test runner, no packages |
+| `scripts/screenshot.sh` | Firefox, plus Python 3 and Pillow for the image check |
+
 ## Running it
 
 The page fetches the JSON at runtime, so it has to be served over HTTP —
@@ -20,6 +34,21 @@ Add `?country=IT` to the URL to preselect a country, e.g.
 
 `?sync=1` makes the page fetch the JSON synchronously. It exists only for the
 screenshot script — see below — and nothing in normal use needs it.
+
+## The date range
+
+**From** and **To** narrow both charts to the reports inside the range; the
+metric cards show the latest report that falls inside it. The bounds are the
+selected country's own first and last report, so the picker can't offer a date
+the country never reported. Choosing another country resets the range to that
+country's full span, and a range holding no reports hides the charts and says
+which dates were empty rather than drawing an axis with nothing on it.
+
+The range is inclusive at both ends, filters the two charts from one place, and
+works on report dates rather than the gaps between them: the first report inside
+a range has no predecessor, so it carries no "new cases" bar. It can also be set
+from the URL, the same way `?country` works —
+<http://localhost:8000/?country=ZA&from=2020-03-01&to=2020-03-20>.
 
 ## The data
 
@@ -82,6 +111,22 @@ What the choice costs:
 
 The arithmetic is pinned against the real dataset in `tests/calc.test.mjs`.
 
+## What the dashboard shows
+
+Four things stand out once the charts are read side by side:
+
+* **China had turned the corner before the window closes.** Confirmed cases
+  climb steeply to 20 Feb, then the rate collapses — 3,293/day for 10–20 Feb,
+  446/day for 1–10 Mar and 12.5/day for 20–31 Mar — while the recovered line
+  keeps rising. On this data the February peak is the whole story.
+* **Italy and the US grow later and harder.** Italy accelerates through March
+  to 5,343/day by 31 Mar; the US starts from almost nothing and finishes
+  steeper still at 15,377/day — the tallest bar on the dashboard.
+* **South Korea bends without spiking.** Its rate peaks at 420/day for
+  1–10 Mar and falls to 103/day for 20–31 Mar: a plateau, not an explosion.
+* **South Africa is a different order of magnitude.** Its first report is
+  5 Mar 2020 with a single case, and it never passes 1,353 confirmed.
+
 ## Charts
 
 **Chart.js, vendored.** The brief allows Chart.js, D3, Plotly or ApexCharts.
@@ -123,6 +168,28 @@ give up the true spacing the line chart gets right.
 itself. The screenshot check counts exact series-colour pixels to tell a drawn
 chart from an empty one, and a full-height card border would read as a bar.
 
+## Assumptions
+
+Where the brief left room, these are the readings taken:
+
+* **"New cases per day" is an interval average, not a daily count.** The file
+  only holds snapshots, so a rate is the honest figure available; it is labelled
+  as a rate everywhere it appears (see *Daily new cases*).
+* **Active cases are derived**, `confirmed − deaths − recovered`, because the
+  dataset supplies only the first three.
+* **"Peak in February" is judged from the reports present.** China's real
+  one-day spike on 12 Feb is invisible between snapshots, so the February peak
+  here is the 10–20 Feb interval.
+* **The date filter is inclusive, drives both charts and the cards together,
+  and resets when the country changes** rather than carrying one country's dates
+  onto another whose reports fall on different days.
+* **A range with no reports hides the charts** instead of plotting an empty
+  axis.
+* **Only the five countries in the supplied file are offered** — there is no
+  live feed, the file *is* the dataset.
+* **Screenshots are captured headlessly at two fixed widths** (1440 desktop,
+  820 tablet) because the brief asks for desktop and tablet.
+
 ## Layout
 
 ```
@@ -146,10 +213,29 @@ node --test tests/calc.test.mjs tests/charts.test.mjs tests/app.test.mjs
 ```
 
 `calc` covers the data layer against the real dataset: normalisation, active
-cases, and the daily-new-cases averages checked against known figures. `charts`
-checks both chart configs — datasets, points, axis bounds, tick dates, tooltip
-wording, animation — with no DOM involved. `app` runs `app.js` against a small
-DOM stub, covering the load → selector → both-charts path and both error paths.
+cases, the daily-new-cases averages checked against known figures, and date
+filtering. `charts` checks both chart configs — datasets, points, axis bounds,
+tick dates, tooltip wording, animation — with no DOM involved. `app` runs
+`app.js` against a small DOM stub, covering the load → selector → range →
+both-charts path and both error paths.
+
+## Testing evidence
+
+The brief asks to see four specific things. Each is backed by a capture and a
+test:
+
+| What the brief asks for | Screenshot | Test |
+| --- | --- | --- |
+| China shows a peak in February | `screenshots/dashboard-CN-1440x1400.png` — tallest bar ends 20 Feb | `China peaks in February rather than March` |
+| Italy shows rapid growth in March | `screenshots/dashboard-IT-1440x1400.png` — bars rise to 5,343/day | `daily new cases are averaged over the gap between reports` |
+| South Africa's first case is 5 Mar | `screenshots/dashboard-ZA-1440x1400.png` — coverage line reads "5 Mar 2020" | `South Africa starts on 5 March with its first case` |
+| Daily new cases match known figures | — see *Daily new cases* above | `daily new cases are averaged over the gap between reports` |
+
+Every capture is machine-checked before it is kept: `scripts/screenshot.sh`
+counts pixels for both charts and refuses to write an image missing either one,
+so a green screenshot is evidence that the chart actually rendered. The
+next section explains that check; the *Daily new cases* section above is where
+the figures are held against JHU's published totals.
 
 ## Screenshots
 
