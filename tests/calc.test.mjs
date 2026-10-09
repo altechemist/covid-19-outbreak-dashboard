@@ -31,6 +31,17 @@ test('a partial row still produces a usable active count', () => {
   assert.equal(row.active, 90);
 });
 
+test('a row without a readable date is dropped rather than crashing the sort', () => {
+  const rows = series({ data: [
+    { date: '2020-03-01', confirmed: 3 },
+    { confirmed: 99 },
+    { date: 'not-a-date', confirmed: 50 },
+    { date: '2020-02-01', confirmed: 1 },
+  ] });
+
+  assert.deepEqual(rows.map((r) => r.date), ['2020-02-01', '2020-03-01']);
+});
+
 test('active cases are confirmed minus deaths minus recovered', () => {
   assert.equal(summary(at('China')).active, 2114);
   assert.equal(summary(at('Italy')).active, 77635);
@@ -126,4 +137,17 @@ test('a repeated date yields no interval rather than a divide by zero', () => {
   assert.equal(rows.length, 1);
   assert.equal(rows[0].days, 9);
   assert.equal(rows[0].confirmed, 2);
+});
+
+test('a dropped row still leaves a usable interval between its neighbours', () => {
+  const rows = dailyNewCases({ country: 'Holey', data: [
+    { date: '2020-03-01', confirmed: 10 },
+    { confirmed: 20 },
+    { date: '2020-03-10', confirmed: 100 },
+  ] });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].from, '2020-03-01');
+  assert.equal(rows[0].days, 9);
+  assert.equal(rows[0].confirmed, 10);
 });

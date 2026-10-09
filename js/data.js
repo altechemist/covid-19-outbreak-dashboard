@@ -2,8 +2,16 @@
 // uniformly: rows oldest to newest, numbers coerced so a partial row can't
 // render as NaN, and active cases derived.
 
+// A row with no readable date can't be placed on the timeline or paired into an
+// interval, and comparing it would throw out of the sort, so it is dropped here
+// — the one place every reader of the data goes through.
+function dated(row) {
+  return typeof row?.date === 'string' && !Number.isNaN(Date.parse(row.date));
+}
+
 export function series(country) {
   return (country?.data ?? [])
+    .filter(dated)
     .map((row) => ({
       date: row.date,
       confirmed: row.confirmed ?? 0,
