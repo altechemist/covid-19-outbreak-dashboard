@@ -10,6 +10,8 @@ export const SERIES = [
 
 export const WEEK = 7 * 24 * 60 * 60 * 1000;
 
+const DAY = 24 * 60 * 60 * 1000;
+
 export function epoch(date) {
   return Date.parse(`${date}T00:00:00Z`);
 }
@@ -46,11 +48,20 @@ export function formatTooltipDate(epochMs) {
 // would squash every point into the right-hand edge of the plot.
 function dateScale(rows) {
   const x = rows.map((row) => epoch(row.date));
+  let min = rows.length ? x[0] : 0;
+  let max = rows.length ? x[x.length - 1] : 1;
+
+  // A filtered range holding a single report would collapse the axis to zero
+  // width; padding it a day either side leaves the point somewhere to sit.
+  if (min === max && rows.length) {
+    min -= DAY;
+    max += DAY;
+  }
 
   return {
     type: 'linear',
-    min: rows.length ? x[0] : 0,
-    max: rows.length ? x[x.length - 1] : 1,
+    min,
+    max,
     ticks: {
       // Starting from a midnight-UTC min, whole weeks land on real dates
       // instead of Chart.js's arbitrary numeric steps.

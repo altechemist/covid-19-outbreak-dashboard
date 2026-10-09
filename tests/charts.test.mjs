@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { series } from '../js/data.js';
+import { series, withinRange } from '../js/data.js';
 import {
   SERIES,
   WEEK,
@@ -101,6 +101,15 @@ test('a country with no rows still yields a usable config', () => {
   assert.ok(datasets.every((d) => d.data.length === 0));
   assert.equal(options.scales.x.min, 0);
   assert.equal(options.scales.x.max, 1);
+});
+
+test('a range holding a single report still gives the axis width', () => {
+  const one = withinRange(at('Italy'), '2020-03-31', '2020-03-31');
+  const { scales: { x } } = chartConfig(one).options;
+  const { scales: { x: barX } } = dailyChartConfig(one).options;
+
+  assert.ok(x.max > x.min, 'a zero-width axis would break the line plot');
+  assert.ok(barX.max > barX.min, 'and the bar plot');
 });
 
 test('the daily chart is a bar chart of one point per interval', () => {

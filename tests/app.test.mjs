@@ -30,22 +30,53 @@ class FakeSelect {
   }
 }
 
+class FakeInput {
+  constructor() {
+    this.value = '';
+    this.min = '';
+    this.max = '';
+    this.disabled = true;
+    this.listeners = [];
+  }
+  addEventListener(type, fn) {
+    this.listeners.push(fn);
+  }
+  change() {
+    this.listeners.forEach((fn) => fn());
+  }
+}
+
+function fakeCanvas() {
+  return {
+    attrs: {},
+    getContext: () => ({}),
+    setAttribute(key, value) {
+      this.attrs[key] = value;
+    },
+  };
+}
+
 async function run({ search = '', response } = {}) {
   const select = new FakeSelect();
+  const from = new FakeInput();
+  const to = new FakeInput();
   const output = { innerHTML: '' };
   const chartWrap = { hidden: true };
   const barWrap = { hidden: true };
-  const canvas = { getContext: () => ({}) };
+  const lineCanvas = fakeCanvas();
+  const barCanvas = fakeCanvas();
   const charts = [];
   const logs = [];
 
   const elements = {
     '#country': select,
+    '#from': from,
+    '#to': to,
     '#output': output,
     '#chart-wrap': chartWrap,
-    '#chart': canvas,
+    '#chart': lineCanvas,
     '#bar-wrap': barWrap,
-    '#bar-chart': canvas,
+    '#bar-chart': barCanvas,
   };
 
   globalThis.document = { querySelector: (selector) => elements[selector] };
@@ -76,7 +107,7 @@ async function run({ search = '', response } = {}) {
     console.error = real.error;
   }
 
-  return { select, output, chartWrap, barWrap, charts, logs };
+  return { select, from, to, output, chartWrap, barWrap, lineCanvas, barCanvas, charts, logs };
 }
 
 test('loads the dataset, populates the selector and logs each country', async () => {
@@ -177,4 +208,66 @@ test('the charts stay hidden when loading fails', async () => {
   assert.equal(chartWrap.hidden, true);
   assert.equal(barWrap.hidden, true);
   assert.equal(charts.length, 0);
+});
+
+test('a date range narrows both charts and the metric cards', async () => {
+  const { output, charts } = await run({
+    search: '?country=za&from=2020-03-01&to=2020-03-20',
+  });
+
+  assert.match(output.innerHTML, /3 points, 5 Mar 2020 to 20 Mar 2020/);
+  assert.equal(charts[0].config.data.datasets[0].data.length, 3, 'line keeps three reports');
+  assert.equal(charts[1].config.data.datasets[0].data.length, 2, 'and two intervals');
+});
+
+test('a range with no reports hides the charts and names the dates', async () => {
+  const { output, chartWrap, barWrap, charts } = await run({
+    search: '?country=za&from=2020-03-06&to=2020-03-09',
+  });
+
+  assert.match(output.innerHTML, /no reports between 6 Mar 2020 and 9 Mar 2020/);
+  assert.equal(chartWrap.hidden, true);
+  assert.equal(barWrap.hidden, true);
+  assert.equal(charts.length, 0);
+});
+
+test('changing country resets the range to its full span', async () => {
+  const { select, from, to, output } = await run({
+    search: '?country=za&from=2020-03-10&to=2020-03-20',
+  });
+
+  assert.equal(from.value, '2020-03-10');
+  assert.equal(to.value, '2020-03-20');
+
+  select.selectedIndex = 1;
+  select.change();
+
+  assert.equal(from.value, '2020-02-20');
+  assert.equal(to.value, '2020-03-31');
+  assert.match(output.innerHTML, /Italy/);
+  assert.match(output.innerHTML, /6 points/);
+});
+
+test('editing a date redraws the charts, and the range cannot be inverted', async () => {
+  const { from, to, output, charts } = await run({ search: '?country=za' });
+
+  from.value = '2020-03-10';
+  from.change();
+
+  assert.match(output.innerHTML, /4 points, 10 Mar 2020 to 31 Mar 2020/);
+  assert.equal(charts.length, 4, 'both charts redraw');
+  assert.equal(charts[2].config.data.datasets[0].data.length, 4);
+
+  from.value = '2020-03-25';
+  to.value = '2020-03-10';
+  from.change();
+
+  assert.equal(to.value, '2020-03-25', 'the other end is pulled up, not inverted');
+});
+
+test('both canvases carry a label naming the country', async () => {
+  const { lineCanvas, barCanvas } = await run({ search: '?country=it' });
+
+  assert.match(lineCanvas.attrs['aria-label'], /^Italy:/);
+  assert.match(barCanvas.attrs['aria-label'], /^Italy:/);
 });

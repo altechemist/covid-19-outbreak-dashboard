@@ -22,6 +22,17 @@ export function series(country) {
     .map((row) => ({ ...row, active: row.confirmed - row.deaths - row.recovered }));
 }
 
+// Narrows a country to the reports inside [from, to] and hands back the same
+// shape, so summary() and both chart builders work on it unchanged. Bounds are
+// ISO dates, which compare correctly as plain strings; an empty bound is open.
+export function withinRange(country, from, to) {
+  const rows = series(country).filter(
+    (row) => (!from || row.date >= from) && (!to || row.date <= to),
+  );
+
+  return { ...country, data: rows };
+}
+
 export function summary(country) {
   const rows = series(country);
   const last = rows[rows.length - 1];

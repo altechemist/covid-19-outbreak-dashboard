@@ -1,4 +1,4 @@
-import { summary, findCountry } from './data.js';
+import { summary, findCountry, withinRange } from './data.js';
 import { chartConfig, dailyChartConfig } from './charts.js';
 
 const DATA_URL = 'covid-19.json';
@@ -26,6 +26,8 @@ function request() {
 }
 
 const countrySelect = document.querySelector('#country');
+const fromInput = document.querySelector('#from');
+const toInput = document.querySelector('#to');
 const output = document.querySelector('#output');
 const chartWrap = document.querySelector('#chart-wrap');
 const chartCanvas = document.querySelector('#chart');
@@ -58,9 +60,28 @@ function readDate(iso) {
   }).format(new Date(`${iso}T00:00:00Z`));
 }
 
-function describe(country) {
+// Keeps the two date inputs inside the selected country's own span, so the
+// picker can't offer a date the country never reported.
+function bounds(country) {
   const s = summary(country);
-  if (!s) return `${country.country}: no data`;
+  const first = s?.from ?? '';
+  const last = s?.to ?? '';
+
+  for (const input of [fromInput, toInput]) {
+    input.min = first;
+    input.max = last;
+  }
+
+  return { first, last };
+}
+
+function describe(country, from, to) {
+  const s = summary(country);
+  if (!s) {
+    return from && to
+      ? `${country.country}: no reports between ${readDate(from)} and ${readDate(to)}`
+      : `${country.country}: no data`;
+  }
 
   const figures =
     `${s.points} points, ${readDate(s.from)} to ${readDate(s.to)} — ` +
@@ -89,6 +110,16 @@ function drawCharts(country) {
   chartWrap.hidden = false;
   barWrap.hidden = false;
 
+  // A canvas is opaque to assistive tech, so it carries the country it shows.
+  chartCanvas.setAttribute(
+    'aria-label',
+    `${country.country}: confirmed, deaths and recovered over time`,
+  );
+  barCanvas.setAttribute(
+    'aria-label',
+    `${country.country}: new cases per day between reports`,
+  );
+
   if (lineChart) lineChart.destroy();
   lineChart = new Chart(chartCanvas.getContext('2d'), chartConfig(country));
 
@@ -96,16 +127,48 @@ function drawCharts(country) {
   barChart = new Chart(barCanvas.getContext('2d'), dailyChartConfig(country));
 }
 
-function render(countries) {
-  const update = () => {
-    const country = countries[countrySelect.selectedIndex];
+// A range that excludes every report leaves nothing to plot. The empty config
+// would draw a 1970 axis, so the charts are hidden instead.
+function hideCharts() {
+  if (lineChart) lineChart.destroy();
+  if (barChart) barChart.destroy();
+  lineChart = null;
+  barChart = null;
+  chartWrap.hidden = true;
+  barWrap.hidden = true;
+}
 
-    output.innerHTML = describe(country);
-    drawCharts(country);
+function render(countries) {
+  const show = () => {
+    const country = countries[countrySelect.selectedIndex];
+    const view = withinRange(country, fromInput.value, toInput.value);
+
+    output.innerHTML = describe(view, fromInput.value, toInput.value);
+
+    if (summary(view)) drawCharts(view);
+    else hideCharts();
   };
 
-  update();
-  countrySelect.addEventListener('change', update);
+  // Switching country drops any narrowed range and starts from its full span.
+  const reset = () => {
+    const { first, last } = bounds(countries[countrySelect.selectedIndex]);
+    fromInput.value = first;
+    toInput.value = last;
+    show();
+  };
+
+  fromInput.addEventListener('change', () => {
+    if (toInput.value < fromInput.value) toInput.value = fromInput.value;
+    show();
+  });
+
+  toInput.addEventListener('change', () => {
+    if (fromInput.value > toInput.value) fromInput.value = toInput.value;
+    show();
+  });
+
+  countrySelect.addEventListener('change', reset);
+  show();
 }
 
 function fail(message) {
@@ -141,16 +204,22 @@ async function load() {
     countrySelect.add(option);
   }
 
-  const preselected = findCountry(
-    data.countries,
-    new URLSearchParams(location.search).get('country'),
-  );
+  const params = new URLSearchParams(location.search);
+  const preselected = findCountry(data.countries, params.get('country'));
 
   countrySelect.disabled = false;
+  fromInput.disabled = false;
+  toInput.disabled = false;
 
   countrySelect.selectedIndex = preselected
     ? data.countries.indexOf(preselected)
     : 0;
+
+  // ?from and ?to open the page on a narrowed range the same way ?country picks
+  // one; without them the country's full span is shown.
+  const { first, last } = bounds(data.countries[countrySelect.selectedIndex]);
+  fromInput.value = params.get('from') ?? first;
+  toInput.value = params.get('to') ?? last;
 
   render(data.countries);
 }

@@ -16,6 +16,10 @@
       <div class="controls">
         <label for="country">Country</label>
         <select id="country" disabled></select>
+        <label for="from">From</label>
+        <input type="date" id="from" disabled />
+        <label for="to">To</label>
+        <input type="date" id="to" disabled />
       </div>
 
       <section id="output" class="card" aria-live="polite">
@@ -25,7 +29,7 @@
       <section id="chart-wrap" class="card" hidden>
         <h2>Trend over time</h2>
         <div class="chart">
-          <canvas id="chart"></canvas>
+          <canvas id="chart" role="img"></canvas>
         </div>
       </section>
 
@@ -33,7 +37,7 @@
         <h2>Daily new cases</h2>
         <p class="hint">Averaged over the days between two reports &mdash; see README</p>
         <div class="chart">
-          <canvas id="bar-chart"></canvas>
+          <canvas id="bar-chart" role="img"></canvas>
         </div>
       </section>
     </main>

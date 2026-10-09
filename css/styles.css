@@ -33,6 +33,7 @@ h1 {
 
 .controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   margin: 1.75rem 0 1rem;
@@ -42,15 +43,18 @@ h1 {
   font-weight: 600;
 }
 
-select {
+select,
+input[type="date"] {
   padding: 0.45rem 0.6rem;
   font: inherit;
+  color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #fff;
 }
 
-select:disabled {
+select:disabled,
+input[type="date"]:disabled {
   color: var(--muted);
 }
 

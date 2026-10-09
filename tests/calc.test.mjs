@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { series, summary, findCountry, dailyNewCases } from '../js/data.js';
+import { series, summary, findCountry, dailyNewCases, withinRange } from '../js/data.js';
 
 const data = JSON.parse(
   readFileSync(new URL('../covid-19.json', import.meta.url), 'utf8'),
@@ -67,6 +67,23 @@ test('South Africa starts on 5 March with its first case', () => {
 test('a country with no rows summarises to null', () => {
   assert.equal(summary({ country: 'Nowhere', data: [] }), null);
   assert.deepEqual(series({}), []);
+});
+
+test('a range keeps only the reports inside it', () => {
+  const za = withinRange(at('South Africa'), '2020-03-01', '2020-03-20');
+
+  assert.deepEqual(series(za).map((r) => r.date), [
+    '2020-03-05',
+    '2020-03-10',
+    '2020-03-20',
+  ]);
+  assert.equal(summary(za).points, 3);
+  assert.equal(summary(za).to, '2020-03-20');
+});
+
+test('an open range keeps everything and an impossible one keeps nothing', () => {
+  assert.equal(series(withinRange(at('Italy'), '', '')).length, 6);
+  assert.equal(summary(withinRange(at('South Africa'), '2020-03-06', '2020-03-09')), null);
 });
 
 test('countries resolve by code or name, case-insensitively', () => {
